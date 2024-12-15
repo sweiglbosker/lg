@@ -76,9 +76,7 @@ pub const Lexer = struct {
             },
             .Class => {
                 while (c != ']') { // needs more verbose error handling
-                    if (self.cursor >= self.regexp.len) {
-                        return Error.EndOfBuffer;
-                    }
+                    c = try self.readChar();
                     self.cursor += 1;
                 }
                 return .{ .kind = inferred_type, .value = .{ .Class = try RangeList.init(self.regexp[self.start + 1 .. self.cursor - 1], self.allocator) }, .pos = self.start };
