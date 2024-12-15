@@ -1,0 +1,13 @@
+re <- cat rer
+
+rer <- '|' cat 
+	| ε
+
+cat <- e catr
+
+catr <- e catr 
+	| ε
+
+e <-  l "Plus" | l "Question" | l "Star" | l
+
+l <- "Literal" | "Class" | "Dot" | "LRaren" re "RParen"
