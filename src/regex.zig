@@ -1,4 +1,6 @@
 const std = @import("std");
+pub const Parser = @import("parser.zig").Parser;
+pub const ParseTree = @import("parser.zig").ParseTree;
 
 pub const Token = struct {
     pub const Kind = enum { Literal, LParen, RParen, Class, Dot, Star, Plus, Question, Or };
@@ -25,6 +27,15 @@ pub const Token = struct {
 
         try writer.print(" }}", .{});
     }
+
+    pub fn deinit(self: *const Token) void {
+        if (self.value) |val| {
+            switch (val) {
+                .Class => |*rl| rl.deinit(),
+                else => {},
+            }
+        }
+    }
 };
 
 pub const Lexer = struct {
@@ -32,11 +43,27 @@ pub const Lexer = struct {
     cursor: usize,
     regexp: []const u8,
     allocator: *std.mem.Allocator,
+    tokens: std.SinglyLinkedList(Token),
 
     pub const Error = error{ EndOfBuffer, InvalidCharacter, UnexpectedCharater };
 
     pub fn init(regexp: []const u8, allocator: *std.mem.Allocator) Lexer {
-        return .{ .cursor = 0, .start = 0, .regexp = regexp, .allocator = allocator };
+        return .{ .cursor = 0, .start = 0, .regexp = regexp, .allocator = allocator, .tokens = std.SinglyLinkedList(Token){ .first = null } };
+    }
+
+    pub fn deinit(self: *Lexer) void {
+        var it = self.tokens.first;
+
+        while (it) |node| {
+            if (node.data.value) |val| {
+                switch (val) {
+                    .Class => |*rl| rl.deinit(),
+                    else => {},
+                }
+            }
+            it = node.next;
+            self.allocator.destroy(node);
+        }
     }
 
     fn readChar(self: *Lexer) !u8 {
@@ -45,6 +72,37 @@ pub const Lexer = struct {
         }
 
         return self.regexp[self.cursor];
+    }
+
+    pub fn scan(self: *Lexer) !std.SinglyLinkedList(Token) {
+        if (self.tokens.first) |_| {
+            return self.tokens;
+        } else {
+            self.tokens.first = try self.allocator.create(std.SinglyLinkedList(Token).Node);
+        }
+
+        var tail: ?*std.SinglyLinkedList(Token).Node = null;
+        var node = self.tokens.first;
+
+        while (true) {
+            const token: Token = self.advance() catch |err| switch (err) {
+                Error.EndOfBuffer => {
+                    self.allocator.destroy(node.?);
+                    if (tail) |t| {
+                        t.next = null;
+                    }
+                    return self.tokens;
+                },
+                else => {
+                    return err;
+                },
+            };
+
+            node.?.data = token;
+            node.?.next = try self.allocator.create(std.SinglyLinkedList(Token).Node);
+            tail = node;
+            node = node.?.next;
+        }
     }
 
     pub fn advance(self: *Lexer) !Token {

@@ -9,26 +9,23 @@ pub fn main() !void {
     defer _ = gpa.deinit();
 
     const lexer = try allocator.create(Regex.Lexer);
+
     lexer.* = Regex.Lexer.init("abc|123[a-Z]()+", &allocator);
-    defer allocator.destroy(lexer);
 
-    while (true) {
-        const token = lexer.advance() catch |err| switch (err) {
-            Regex.Lexer.Error.EndOfBuffer => {
-                break;
-            },
-            else => {
-                return err;
-            },
-        };
+    const tl = try lexer.scan();
 
-        try stdio.print("{}\n", .{token});
-
-        if (token.value) |v| {
-            switch (v) {
-                .Class => |*rl| rl.deinit(),
-                else => {},
-            }
-        }
+    var it = tl.first;
+    while (it) |node| : (it = node.next) {
+        try stdio.print("{}\n", .{&(node.data)});
     }
+
+    const parser = try allocator.create(Regex.Parser);
+
+    parser.* = Regex.Parser.init(&lexer.tokens, &allocator);
+
+    _ = try parser.parseRe();
+
+    lexer.deinit();
+    allocator.destroy(lexer);
+    allocator.destroy(parser);
 }
