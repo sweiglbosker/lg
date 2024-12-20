@@ -8,24 +8,16 @@ pub fn main() !void {
 
     defer _ = gpa.deinit();
 
-    const lexer = try allocator.create(Regex.Lexer);
+    var lexer = Regex.Lexer.init("bz*[a-z](l)", &allocator);
 
-    lexer.* = Regex.Lexer.init("abc|123[a-Z]()+", &allocator);
+    _ = try lexer.scan();
 
-    const tl = try lexer.scan();
+    var parser = Regex.Parser.init(&lexer.tokens, &allocator);
 
-    var it = tl.first;
-    while (it) |node| : (it = node.next) {
-        try stdio.print("{}\n", .{&(node.data)});
-    }
+    const pt = try parser.parse();
 
-    const parser = try allocator.create(Regex.Parser);
+    try stdio.print("{}\n", .{pt});
 
-    parser.* = Regex.Parser.init(&lexer.tokens, &allocator);
-
-    _ = try parser.parseRe();
-
+    parser.deinit();
     lexer.deinit();
-    allocator.destroy(lexer);
-    allocator.destroy(parser);
 }
