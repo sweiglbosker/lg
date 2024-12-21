@@ -51,45 +51,21 @@ pub const ParseTree = struct {
         }
     }
 
-    pub fn format(self: *const ParseTree, comptime fmt: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
-        var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-        defer arena.deinit();
-        const allocator = arena.allocator();
+    pub fn format(self: *const ParseTree, _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        const child = self.child;
+        const sibling = self.sibling;
 
-        if (fmt.len != 0) {
-            return std.invalidFmtError(fmt, self);
+        try writer.print("rule: {s}\n", .{@tagName(self.rule)});
+
+        if (self.rule == Rule.Terminal) {
+            try writer.print("token: {}\n", .{self.token.?});
         }
 
-        const Queue = std.DoublyLinkedList(struct { *const ParseTree, u32 });
+        if (child) |c|
+            try writer.print("{}", .{c});
 
-        var q: Queue = .{};
-
-        const root = try allocator.create(Queue.Node);
-        root.* = .{ .data = .{ self, 0 } };
-
-        q.append(root);
-
-        var level: u32 = 0;
-        while (q.len != 0) {
-            const cur: *Queue.Node = q.popFirst().?;
-
-            const tree = cur.data[0];
-            const l = cur.data[1];
-
-            if (l != level) {
-                try writer.print("\n", .{});
-                level = l;
-            }
-
-            try writer.print("{s} ", .{@tagName(tree.rule)});
-
-            var p: ?*ParseTree = tree.child;
-            while (p) |child| : (p = child.sibling) {
-                const node = try allocator.create(Queue.Node);
-                node.* = .{ .data = .{ child, l + 1 } };
-                q.append(node);
-            }
-        }
+        if (sibling) |s|
+            try writer.print("{}", .{s});
     }
 };
 
